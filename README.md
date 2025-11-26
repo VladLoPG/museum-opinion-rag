@@ -1,1 +1,1 @@
-# museum_sentiment_rag
+# museum-opinion-rag
