@@ -6,8 +6,7 @@ The functionality allows the use of Groq API or local models with llama.cpp.
 
 ## Pipeline
 
-<img width="361" height="802" alt="project_diagram" src="https://github.com/user-attachments/assets/c4743709-af1c-4e11-a1e5-4cb68566e9b7" />
-
+![project_diagram](https://github.com/user-attachments/assets/78f88e3f-d0e6-4a21-99ed-790bd5b98bea)
 
 ## Getting Started
 
