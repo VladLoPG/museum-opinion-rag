@@ -18,20 +18,20 @@ from llama_index.llms.llama_cpp import LlamaCPP
 
 def load_csv(path: str) -> pd.DataFrame:
     """
-    Загружает таблицу с отзывами из .csv
+    Loads reviews from .csv
     """
     data = pd.read_csv(path, index_col=0)
-    st.success("Данные загружены успешно")
+    st.success("Data loaded successfully")
     return data
 
 
 def create_json(data: pd.DataFrame) -> dict[list]:
     """
-    Формирует json на основе данных из таблицы
+    Forms json based on the table
 
-    :param data: Принимает датафрейм с предыдущей функции
+    :param data: Takes DataFrame from the previous step
     :type data: pd.DataFrame
-    :return: словарь с ключом 'documents' и значением в виде списка
+    :return: dictionary with 'documents' key and a value of a list of json objects
     :rtype: dict
     """
 
@@ -48,15 +48,15 @@ def create_json(data: pd.DataFrame) -> dict[list]:
         doc["created_date"] = date.today().strftime("%d.%m.%Y")
         documents.append(doc)
 
-    st.success("Основной жосон создан")
+    st.success("Main json created")
     return {"documents": documents}
 
 
 def chunk_dataset(json_data: dict[list]) -> dict[list]:
     """
-    Создает json на основе целых отзывов, производя рекурсивное чанкирование
+    Creates json based on recursive chunking of the main json with full reviews
 
-    :param json_data: Содержит информацию оригинального отзыва + метаданные чанка
+    :param json_data: Has info about the original review plus chunk metadata
     """
     splitter = RecursiveCharacterTextSplitter(chunk_size=150, chunk_overlap=30)
 
@@ -77,7 +77,7 @@ def chunk_dataset(json_data: dict[list]) -> dict[list]:
             }
             chunks.append(chunk)
 
-    st.success("Чанки созданы")
+    st.success("Chunks created")
     return {"chunks": chunks}
 
 
@@ -87,11 +87,11 @@ def get_documents(
     excluded_embed=["chunk_id", "chunk_position", "total_chunks"],
 ):
     """
-    Формирует Document для ллама индекс на основе json чанков
+    Forms llamaindex Documents based on chunked json
 
-    :param chunked_data: json с предыдущего шага
-    :param excluded_llm: какие данные скрыть от ллм
-    :param excluded_embed: какие данные не учитывать в эмбеддингах
+    :param chunked_data: json from previous step
+    :param excluded_llm: what data to hide from llm
+    :param excluded_embed: what data exclude from embeddings
     """
     documents = [
         Document(
@@ -100,23 +100,22 @@ def get_documents(
                 "object": item["meta"]["object"],
                 "platform": item["meta"]["platform"],
                 "year": item["meta"]["year"],
-                "chunk_id": item["id"],  # Только для отладки
-                "original_doc": item["original_doc_id"],  # Для трассировки источников
+                "chunk_id": item["id"],  
+                "original_doc": item["original_doc_id"],
                 "chunk_position": item["chunk_info"][
                     "position"
-                ],  # Техническая информация
+                ],  
                 "total_chunks": item["chunk_info"][
                     "total_chunks"
-                ],  # Техническая информация
+                ],  
             },
-            # Что скрыть от LLM при генерации ответов (конфиденциальные, избыточные данные)
+            
             excluded_llm_metadata_keys=excluded_llm,
-            # Что исключить из векторных эмбеддингов (не влияет на поиск векторного сходства)
             excluded_embed_metadata_keys=excluded_embed,
         )
         for item in chunked_data["chunks"]
     ]
-    st.success("Документы лламаиндекс созданы")
+    st.success("LlamaIndex Documents created")
     return documents
 
 
@@ -126,14 +125,14 @@ def set_vector_store(
     embed_model_name="paraphrase-multilingual-MiniLM-L12-v2",
 ):
     """
-    Создает новую коллекцию в БД
+    Creates new ChromaDB collection
 
-    :param documents: список документов ллама индекс
-    :param collection_name: название новой коллекции
-    :param embed_model_name: название эмбеддинг модели из huggingface
+    :param documents: list of llamaindex docs
+    :param collection_name: new collection name
+    :param embed_model_name: embedding model name from hf
     """
 
-    st.text(f"Делаю новую коллекцию: {collection_name}")
+    st.text(f"Creating new collection: {collection_name}")
     embed_model = HuggingFaceEmbedding(embed_model_name)
     chroma_client = chromadb.PersistentClient(path="./chroma")
     chroma_collection = chroma_client.create_collection(collection_name)
@@ -145,7 +144,7 @@ def set_vector_store(
         storage_context=storage_context,
         show_progress=True,
     )
-    st.text("Векторное хранилище загружено")
+    st.success("Vector storage loaded")
 
     return index
 
@@ -154,20 +153,20 @@ def get_vector_store(
     collection_name, embed_model_name="paraphrase-multilingual-MiniLM-L12-v2"
 ):
     """
-    Загружает существующую коллекцию
+    Loads existing collection
 
-    :param collection_name: название коллекции
-    :param embed_model_name: название модели huggingface, которая делала эмбеддинги (нужно для совместимости поиска)
+    :param collection_name: collection name
+    :param embed_model_name: hf model name (needed for compatibility)
     """
-    st.text(f"Загружаю существующую коллекцию: {collection_name}")
+    st.text(f"Loading existing collection: {collection_name}")
     chroma_client = chromadb.PersistentClient(path="./chroma")
-    embed_model = HuggingFaceEmbedding(embed_model_name, device="cpu")
+    embed_model = HuggingFaceEmbedding(embed_model_name)
     chroma_collection = chroma_client.get_collection(collection_name)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     index = VectorStoreIndex.from_vector_store(
         vector_store=vector_store, embed_model=embed_model
     )
-    st.success("Векторное хранилище загружено")
+    st.success("Vector storage loaded")
 
     return index
 
@@ -175,12 +174,11 @@ def get_vector_store(
 @st.cache_resource
 def set_llm(_index, inference="Groq", model="llama-3.1-8b-instant"):
     """
-    Настраивает поисковый движок с ллм, по умолчанию использует базовую модель из апи Groq (нужен файл .env в рабочей директории)
-    Также есть опция локального инференса через llamacpp, тогда нужен путь к модели формата gguf
+    Configures LLM query engine
 
-    :param index: Индекс коллекции хромадб
-    :param inference: Движок для инференса - Groq или llamacpp
-    :param model: Название модели (Groq) или путь к модели (llamacpp)
+    :param index: ChromaDB collection index
+    :param inference: Inference engine (Groq or llama)
+    :param model: model name (Groq) or model path (llama)
     """
 
     system_prompt = """
@@ -208,13 +206,13 @@ def set_llm(_index, inference="Groq", model="llama-3.1-8b-instant"):
 
     query_engine = _index.as_query_engine(llm=llm, similarity_top_k=15)
 
-    st.success("Поисковый движок с ллм загружен")
+    st.success("LLM query engine loaded")
     return query_engine
 
 
 def get_response(query_engine, query):
     """
-    Получаем ответ на запрос, выводится как ответ модели, так и релевантные чанки в порядке confidence score
+    Receive answer based on query, also get chunks in descending order of confidence scores
 
     :param query_engine: Поисковый движок с ллм
     :param query: Пользовательский запрос
@@ -227,14 +225,14 @@ def get_response(query_engine, query):
         "nodes": response.source_nodes,
     }
 
-    st.text("Ответ модели")
+    st.text("Model answer")
     st.markdown(result["text"])
-    st.text(f"\nРелевантные чанки:")
+    st.text(f"\nRelevant chunks:")
     st.markdown("---")
 
     for i, node in enumerate(result["nodes"], start=1):
         st.text(
-            f"Чанк №{i}, score = {node.score:.3f}, объект = {node.metadata.get('object')}, год = {node.metadata.get('year')}"
+            f"Chunk №{i}, score = {node.score:.3f}, object = {node.metadata.get('object')}, year = {node.metadata.get('year')}"
         )
         st.text(node.node.get_content())
         st.markdown("---")

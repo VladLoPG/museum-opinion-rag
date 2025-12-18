@@ -26,7 +26,7 @@ if "model" not in st.session_state:
 
 
 collection_name = st.text_input(
-    label="Введите название коллекции или оставьте без изменений", value="sentiment_rag"
+    label="Enter collection name or keep it as default", value="sentiment_rag"
 )
 
 chroma_client = chromadb.PersistentClient(path="./chroma")
@@ -35,13 +35,13 @@ st.session_state.collection_exists = collection_name in existing
 
 if not st.session_state.collection_exists and not st.session_state.collection_loaded:
     path = st.text_input(
-        label="Введите путь к файлу с данными отзывов",
+        label="Provide path to the file with reviews",
         value="megatitan_texts_unique.csv",
     )
 else:
     path = None
 
-if st.button("Начать загрузку коллекции"):
+if st.button("Begin loading collection"):
     if not st.session_state.collection_exists:
         data = load_csv(path=path)
         json_data = create_json(data)
@@ -56,12 +56,12 @@ if st.button("Начать загрузку коллекции"):
     st.session_state.collection_loaded = True
     
 if st.session_state.collection_loaded:    
-    inference = st.selectbox(label='Выберите движок для инференса', options=['Groq', 'llamacpp'])
+    inference = st.selectbox(label='Choose inference engine', options=['Groq', 'llamacpp'])
     st.session_state.inference = inference
     if st.session_state.inference == 'Groq':
-        model = st.text_input(label='Введите название модели (по умолчанию можно взять - llama-3.1-8b-instant)')
+        model = st.text_input(label='Enter model name (you can use default - llama-3.1-8b-instant)')
     else:
-        model = st.text_input(label='Введите путь к модели GGUF')
+        model = st.text_input(label='Enter GGUF model path')
     st.session_state.model = model
 
 if st.session_state.inference and st.session_state.model:
@@ -70,8 +70,8 @@ if st.session_state.inference and st.session_state.model:
     
 
 if st.session_state.query_engine:
-    query = st.text_input(label="Введите запрос для поиска по базе")
+    query = st.text_input(label="Enter query")
 
-    if st.button("Начать поиск"):
-        st.text('Поиск запущен')
+    if st.button("Begin search"):
+        st.text('Searching ...')
         get_response(query_engine=st.session_state.query_engine, query=query)
