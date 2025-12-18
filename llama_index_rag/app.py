@@ -19,6 +19,10 @@ if "collection_exists" not in st.session_state:
     st.session_state.collection_exists = False
 if "collection_loaded" not in st.session_state:
     st.session_state.collection_loaded = False
+if "inference" not in st.session_state:
+    st.session_state.inference = None
+if "model" not in st.session_state:
+    st.session_state.model = None
 
 
 collection_name = st.text_input(
@@ -49,12 +53,25 @@ if st.button("Начать загрузку коллекции"):
         index = get_vector_store(collection_name=collection_name)
 
     st.session_state.index = index
-    st.session_state.query_engine = set_llm(index)
     st.session_state.collection_loaded = True
+    
+if st.session_state.collection_loaded:    
+    inference = st.selectbox(label='Выберите движок для инференса', options=['Groq', 'llamacpp'])
+    st.session_state.inference = inference
+    if st.session_state.inference == 'Groq':
+        model = st.text_input(label='Введите название модели (по умолчанию можно взять - llama-3.1-8b-instant)')
+    else:
+        model = st.text_input(label='Введите путь к модели GGUF')
+    st.session_state.model = model
 
-if st.session_state.collection_loaded:
-    st.divider()
+if st.session_state.inference and st.session_state.model:
+    query_engine = set_llm(_index=st.session_state.index, inference=st.session_state.inference, model=st.session_state.model)  
+    st.session_state.query_engine = query_engine
+    
+
+if st.session_state.query_engine:
     query = st.text_input(label="Введите запрос для поиска по базе")
 
     if st.button("Начать поиск"):
+        st.text('Поиск запущен')
         get_response(query_engine=st.session_state.query_engine, query=query)

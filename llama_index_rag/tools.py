@@ -16,16 +16,24 @@ from llama_index.llms.groq import Groq
 from llama_index.llms.llama_cpp import LlamaCPP
 
 
-## Задокументировать функции
-
-
-def load_csv(path):
+def load_csv(path: str) -> pd.DataFrame:
+    """
+    Загружает таблицу с отзывами из .csv
+    """
     data = pd.read_csv(path, index_col=0)
-    st.text("Данные загружены успешно")
+    st.success("Данные загружены успешно")
     return data
 
 
-def create_json(data):
+def create_json(data: pd.DataFrame) -> dict[list]:
+    """
+    Формирует json на основе данных из таблицы
+
+    :param data: Принимает датафрейм с предыдущей функции
+    :type data: pd.DataFrame
+    :return: словарь с ключом 'documents' и значением в виде списка
+    :rtype: dict
+    """
 
     documents = []
     for _, row in data.iterrows():
@@ -40,12 +48,16 @@ def create_json(data):
         doc["created_date"] = date.today().strftime("%d.%m.%Y")
         documents.append(doc)
 
-    st.text("Основной жосон создан")
+    st.success("Основной жосон создан")
     return {"documents": documents}
 
 
-def chunk_dataset(json_data):
+def chunk_dataset(json_data: dict[list]) -> dict[list]:
+    """
+    Создает json на основе целых отзывов, производя рекурсивное чанкирование
 
+    :param json_data: Содержит информацию оригинального отзыва + метаданные чанка
+    """
     splitter = RecursiveCharacterTextSplitter(chunk_size=150, chunk_overlap=30)
 
     chunks = []
@@ -65,7 +77,7 @@ def chunk_dataset(json_data):
             }
             chunks.append(chunk)
 
-    st.text("Чанки созданы")
+    st.success("Чанки созданы")
     return {"chunks": chunks}
 
 
@@ -74,6 +86,13 @@ def get_documents(
     excluded_llm=["chunk_id", "chunk_position"],
     excluded_embed=["chunk_id", "chunk_position", "total_chunks"],
 ):
+    """
+    Формирует Document для ллама индекс на основе json чанков
+
+    :param chunked_data: json с предыдущего шага
+    :param excluded_llm: какие данные скрыть от ллм
+    :param excluded_embed: какие данные не учитывать в эмбеддингах
+    """
     documents = [
         Document(
             text=item["text"],
@@ -97,7 +116,7 @@ def get_documents(
         )
         for item in chunked_data["chunks"]
     ]
-    st.text("Документы лламаиндекс созданы")
+    st.success("Документы лламаиндекс созданы")
     return documents
 
 
@@ -106,6 +125,13 @@ def set_vector_store(
     collection_name,
     embed_model_name="paraphrase-multilingual-MiniLM-L12-v2",
 ):
+    """
+    Создает новую коллекцию в БД
+
+    :param documents: список документов ллама индекс
+    :param collection_name: название новой коллекции
+    :param embed_model_name: название эмбеддинг модели из huggingface
+    """
 
     st.text(f"Делаю новую коллекцию: {collection_name}")
     embed_model = HuggingFaceEmbedding(embed_model_name)
@@ -127,20 +153,35 @@ def set_vector_store(
 def get_vector_store(
     collection_name, embed_model_name="paraphrase-multilingual-MiniLM-L12-v2"
 ):
+    """
+    Загружает существующую коллекцию
+
+    :param collection_name: название коллекции
+    :param embed_model_name: название модели huggingface, которая делала эмбеддинги (нужно для совместимости поиска)
+    """
     st.text(f"Загружаю существующую коллекцию: {collection_name}")
     chroma_client = chromadb.PersistentClient(path="./chroma")
-    embed_model = HuggingFaceEmbedding(embed_model_name)
+    embed_model = HuggingFaceEmbedding(embed_model_name, device="cpu")
     chroma_collection = chroma_client.get_collection(collection_name)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     index = VectorStoreIndex.from_vector_store(
         vector_store=vector_store, embed_model=embed_model
     )
-    st.text("Векторное хранилище загружено")
+    st.success("Векторное хранилище загружено")
 
     return index
 
 
-def set_llm(index, model="llama-3.1-8b-instant"):
+@st.cache_resource
+def set_llm(_index, inference="Groq", model="llama-3.1-8b-instant"):
+    """
+    Настраивает поисковый движок с ллм, по умолчанию использует базовую модель из апи Groq (нужен файл .env в рабочей директории)
+    Также есть опция локального инференса через llamacpp, тогда нужен путь к модели формата gguf
+
+    :param index: Индекс коллекции хромадб
+    :param inference: Движок для инференса - Groq или llamacpp
+    :param model: Название модели (Groq) или путь к модели (llamacpp)
+    """
 
     system_prompt = """
     You are a professional museum review analyst. 
@@ -149,13 +190,13 @@ def set_llm(index, model="llama-3.1-8b-instant"):
     Only use the Russian language in your answers. Always use markdown
     """
 
-    if model == "yandexgpt":
+    if inference == "llamacpp":
         llm = LlamaCPP(
-            model_path="/Users/vldlbnv/localai/models/yandexgpt.gguf",
+            model_path=model,
             temperature=0.3,
-            context_window=9192,
+            context_window=8192,
             max_new_tokens=512,
-            model_kwargs={"n_gpu_layers": -1},
+            model_kwargs={"n_gpu_layers": -1, "n_ctx": 8192},
             system_prompt=system_prompt,
             verbose=False,
         )
@@ -165,13 +206,19 @@ def set_llm(index, model="llama-3.1-8b-instant"):
         api_key = os.getenv("GROQ_API_KEY")
         llm = Groq(model=model, api_key=api_key, system_prompt=system_prompt)
 
-    query_engine = index.as_query_engine(llm=llm, similarity_top_k=15)
+    query_engine = _index.as_query_engine(llm=llm, similarity_top_k=15)
 
-    st.text("Поисковый движок с ллм загружен")
+    st.success("Поисковый движок с ллм загружен")
     return query_engine
 
 
 def get_response(query_engine, query):
+    """
+    Получаем ответ на запрос, выводится как ответ модели, так и релевантные чанки в порядке confidence score
+
+    :param query_engine: Поисковый движок с ллм
+    :param query: Пользовательский запрос
+    """
 
     response = query_engine.query(query)
 
@@ -183,7 +230,7 @@ def get_response(query_engine, query):
     st.text("Ответ модели")
     st.markdown(result["text"])
     st.text(f"\nРелевантные чанки:")
-    st.text('---')
+    st.markdown("---")
 
     for i, node in enumerate(result["nodes"], start=1):
         st.text(
