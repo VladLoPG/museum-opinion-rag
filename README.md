@@ -41,8 +41,8 @@ streamlit run app.py
 
 ## Using the app
 1. Enter the name of the collection (default is 'sentiment_rag')
-if the collection exists, you will jump to the next step immediately
-if the collection is new, it will take some time to generate embeddings (not too long though)
+- if the collection exists, you will jump to the next step immediately
+- if the collection is new, it will take some time to generate embeddings (not too long though)
 3. Choose the inference engine (Groq or llama.cpp)
 - with Groq, you will need to enter the name of the model and ensure .env file is in your folder
 - with llama.cpp, you will need to provide the path to the model file
