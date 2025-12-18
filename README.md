@@ -42,4 +42,5 @@ if the collection is new, it will take some time to generate embeddings (not too
 2. Choose the inference engine (Groq or llama.cpp)
 - with Groq, you will need to enter the name of the model and ensure .env file is in your folder
 - with llama.cpp, you will need to provide the path to the model file
-3. 
+3. Enter your query
+You will first see the answer of the model (with markdown if it so wishes) and then 15 relevant chunks with score, object and year info
