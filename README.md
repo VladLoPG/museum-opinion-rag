@@ -4,6 +4,11 @@ A Retrieval-Augmented Generation (RAG) application for museum-related opinions u
 The app is intended for using it to analyze Russian reviews (the data is provided in the megatitan table), but can be used with other languages (embedding model used is **paraphrase-multilingual-MiniLM-L12-v2**).
 The functionality allows the use of Groq API or local models with llama.cpp.
 
+## Pipeline
+
+<img width="361" height="802" alt="project_diagram" src="https://github.com/user-attachments/assets/c4743709-af1c-4e11-a1e5-4cb68566e9b7" />
+
+
 ## Getting Started
 
 ### 1 Clone the repository and enter the folder
